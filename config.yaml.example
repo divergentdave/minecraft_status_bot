@@ -1,0 +1,19 @@
+minecraft:
+
+    # Fill in your server's IP address to check it,
+    # or delete this section
+    ip:
+        - "127.0.0.1"
+
+    # Fill in your login details to check Minecraft Realms servers,
+    # or delete this section
+    realms:
+        username: "email@example.com"
+        password: "password"
+
+# Fill in a Slack API token and an internal channel identifier
+# (The channel identifier should start with D for a direct message, or
+# C for a normal channel)
+slack:
+    token: "aaaa-1111111111-22222222222-33333333333-abcdef0123"
+    channel: "X1A2B3C4D"
