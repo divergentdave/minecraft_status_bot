@@ -7,20 +7,18 @@ import uuid
 import yaml
 
 class MinecraftServer:
-    pass
-
-class IPMinecraftServer(MinecraftServer):
     def __init__(self, ip):
         self.ip = ip
 
     def run(self):
         server = mcstatus.MinecraftServer.lookup(self.ip)
         response = server.status()
-        yield response.description["text"], response.players.online, self.ip
+        return response.description["text"], response.players.online
 
-class RealmsMetaServer(MinecraftServer):
+class RealmsDirectory:
     AUTH_URL = "https://authserver.mojang.com/authenticate"
     WORLDS_URL = "https://mcoapi.minecraft.net/worlds"
+    JOIN_URL = "https://mcoapi.minecraft.net/worlds/{}/join"
 
     def __init__(self, username, password):
         self.username = username
@@ -54,16 +52,16 @@ class RealmsMetaServer(MinecraftServer):
             "version": "1.11.2"
         }
 
-    def run(self):
+    def list(self):
         if not self.cookies:
             self.login()
         worlds_response = requests.get(self.WORLDS_URL, cookies=self.cookies)
         worlds_body = worlds_response.json()
         for server in worlds_body["servers"]:
-            num_players = 0
-            if server["players"] is not None:
-                num_players = len(server["players"])
-            yield server["name"], num_players, server["id"]
+            join_response = requests.get(self.JOIN_URL.format(server["id"]),
+                                         cookies=self.cookies)
+            join_body = join_response.json()
+            yield MinecraftServer(join_body["address"])
 
 
 def main():
@@ -72,12 +70,14 @@ def main():
     config_minecraft = config["minecraft"]
     if "ip" in config_minecraft:
         for ip in config_minecraft["ip"]:
-            servers.append(IPMinecraftServer(ip))
+            servers.append(MinecraftServer(ip))
     if "realms" in config_minecraft:
         config_realms = config_minecraft["realms"]
         if "username" in config_realms and "password" in config_realms:
-            servers.append(RealmsMetaServer(config_realms["username"],
-                                            config_realms["password"]))
+            directory = RealmsDirectory(config_realms["username"],
+                                        config_realms["password"])
+            for server in directory.list():
+                servers.append(server)
 
     if not servers:
         raise Exception("No server details were specified. Please edit "
@@ -92,14 +92,14 @@ def main():
     last_counts = {}
     while True:
         for server in servers:
-            for name, count, identifier in server.run():
-                last_count = last_counts.get(identifier, 0)
-                if last_count < threshold and count >= threshold:
-                    msg = "Beep boop, there are {} players on {}".format(
-                        count,
-                        name
-                    )
-                    print(msg)
-                    slack.chat.post_message(channel, msg)
-                last_counts[identifier] = count
+            name, count = server.run()
+            last_count = last_counts.get(server.ip, 0)
+            if last_count < threshold and count >= threshold:
+                msg = "Beep boop, there are {} players on {}".format(
+                    count,
+                    name
+                )
+                print(msg)
+                slack.chat.post_message(channel, msg)
+            last_counts[server.ip] = count
         time.sleep(5 * 60)
