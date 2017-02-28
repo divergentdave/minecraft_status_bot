@@ -11,9 +11,10 @@ minecraft:
         username: "email@example.com"
         password: "password"
 
-# Fill in a Slack API token and an internal channel identifier
-# (The channel identifier should start with D for a direct message, or
-# C for a normal channel)
+# Fill in a Slack API token and a channel name
 slack:
     token: "aaaa-1111111111-22222222222-33333333333-abcdef0123"
-    channel: "X1A2B3C4D"
+    channel: "#general"
+
+# Send a message when there are this many players online
+threshold: 2

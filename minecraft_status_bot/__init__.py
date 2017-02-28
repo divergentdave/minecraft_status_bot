@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import mcstatus
 import requests
+import slacker
+import time
 import uuid
 import yaml
 
@@ -14,7 +16,7 @@ class IPMinecraftServer(MinecraftServer):
     def run(self):
         server = mcstatus.MinecraftServer.lookup(self.ip)
         response = server.status()
-        yield response.description["text"], response.players.online
+        yield response.description["text"], response.players.online, self.ip
 
 class RealmsMetaServer(MinecraftServer):
     AUTH_URL = "https://authserver.mojang.com/authenticate"
@@ -61,7 +63,7 @@ class RealmsMetaServer(MinecraftServer):
             num_players = 0
             if server["players"] is not None:
                 num_players = len(server["players"])
-            yield server["name"], num_players
+            yield server["name"], num_players, server["id"]
 
 
 def main():
@@ -82,9 +84,22 @@ def main():
                         "config.yaml and add either a server IP address or "
                         "login credentials for checking Minecraft Realms")
 
-    for server in servers:
-        for name, count in server.run():
-            if count == 1:
-                print("{}: {} player online".format(name, count))
-            else:
-                print("{}: {} players online".format(name, count))
+    config_slack = config["slack"]
+    slack = slacker.Slacker(config_slack["token"])
+    channel = config_slack["channel"]
+
+    threshold = config["threshold"]
+    last_counts = {}
+    while True:
+        for server in servers:
+            for name, count, identifier in server.run():
+                last_count = last_counts.get(identifier, 0)
+                if last_count < threshold and count >= threshold:
+                    msg = "Beep boop, there are {} players on {}".format(
+                        count,
+                        name
+                    )
+                    print(msg)
+                    slack.chat.post_message(channel, msg)
+                last_counts[identifier] = count
+        time.sleep(5 * 60)

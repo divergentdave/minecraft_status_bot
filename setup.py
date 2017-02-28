@@ -11,6 +11,7 @@ setup(
         "mcstatus",
         "pyyaml",
         "requests",
+        "slacker",
     ],
     entry_points = {
         "console_scripts": ["minecraft_status_bot=minecraft_status_bot:main"]
